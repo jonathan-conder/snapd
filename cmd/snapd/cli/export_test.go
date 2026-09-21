@@ -272,10 +272,18 @@ func MockTimeutilHuman(h func(time.Time) string) (restore func()) {
 }
 
 func MockWaitConfTimeout(d time.Duration) (restore func()) {
-	oldWaitConfTimeout := d
+	oldWaitConfTimeout := waitConfTimeout
 	waitConfTimeout = d
 	return func() {
 		waitConfTimeout = oldWaitConfTimeout
+	}
+}
+
+func MockWaitConfSleep(f func(time.Duration)) (restore func()) {
+	oldWaitConfSleep := waitConfSleep
+	waitConfSleep = f
+	return func() {
+		waitConfSleep = oldWaitConfSleep
 	}
 }
 

@@ -53,6 +53,33 @@ func (s *SnapSuite) TestCmdWaitHappy(c *C) {
 	c.Check(n > 2, Equals, true)
 }
 
+func (s *SnapSuite) TestCmdWaitBacksOffFromShortPollInterval(c *C) {
+	var sleeps []time.Duration
+	restore := snap.MockWaitConfSleep(func(d time.Duration) {
+		sleeps = append(sleeps, d)
+	})
+	defer restore()
+
+	n := 0
+	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, Equals, "GET")
+		c.Check(r.URL.Path, Equals, "/v2/snaps/system/conf")
+
+		fmt.Fprintf(w, `{"type":"sync", "status-code": 200, "result": {"seed.loaded":%v}}\n`, n > 3)
+		n++
+	})
+
+	_, err := snap.Parser(snap.Client()).ParseArgs([]string{"wait", "system", "seed.loaded"})
+	c.Assert(err, IsNil)
+
+	c.Check(sleeps, DeepEquals, []time.Duration{
+		10 * time.Millisecond,
+		20 * time.Millisecond,
+		40 * time.Millisecond,
+		80 * time.Millisecond,
+	})
+}
+
 func (s *SnapSuite) TestCmdWaitMissingConfKey(c *C) {
 	n := 0
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {

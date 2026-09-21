@@ -59,7 +59,11 @@ func init() {
 		})
 }
 
-var waitConfTimeout = 500 * time.Millisecond
+var (
+	waitConfTimeout        = 500 * time.Millisecond
+	waitConfInitialTimeout = 10 * time.Millisecond
+	waitConfSleep          = time.Sleep
+)
 
 func isNoOption(err error) bool {
 	if e, ok := err.(*client.Error); ok && e.Kind == client.ErrorKindConfigNoSuchOption {
@@ -120,6 +124,11 @@ func (x *cmdWait) Execute(args []string) error {
 		return fmt.Errorf("the required argument `<key>` was not provided")
 	}
 
+	sleep := waitConfInitialTimeout
+	if sleep > waitConfTimeout {
+		sleep = waitConfTimeout
+	}
+
 	for {
 		conf, err := x.client.Conf(snapName, []string{confKey})
 		if err != nil && !isNoOption(err) {
@@ -132,7 +141,11 @@ func (x *cmdWait) Execute(args []string) error {
 		if res {
 			break
 		}
-		time.Sleep(waitConfTimeout)
+		waitConfSleep(sleep)
+		sleep *= 2
+		if sleep > waitConfTimeout {
+			sleep = waitConfTimeout
+		}
 	}
 
 	return nil
