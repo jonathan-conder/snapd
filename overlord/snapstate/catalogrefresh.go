@@ -123,6 +123,18 @@ func (r *catalogRefresh) Ensure() error {
 		if st, err := os.Stat(dirs.SnapNamesFile); err == nil && st.ModTime().Before(now) {
 			// add the delay with the delta so we spread the load a bit
 			r.nextCatalogRefresh = st.ModTime().Add(r.catalogRefreshDelayWithDelta)
+		} else if errors.Is(err, os.ErrNotExist) {
+			var seedTime time.Time
+			numSnaps, err := NumSnaps(r.state)
+			if err != nil {
+				return err
+			}
+			if err := r.state.Get("seed-time", &seedTime); err == nil && numSnaps == 0 && seedTime.Add(r.catalogRefreshDelayWithDelta).After(now) {
+				r.nextCatalogRefresh = seedTime.Add(r.catalogRefreshDelayWithDelta)
+			} else {
+				// first time scheduling, add the delta
+				delay = r.catalogRefreshDelayWithDelta
+			}
 		} else {
 			// first time scheduling, add the delta
 			delay = r.catalogRefreshDelayWithDelta
